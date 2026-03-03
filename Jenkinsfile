@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         // Tên tài khoản Docker Hub của bạn (nhớ thay đổi nhé)
-        DOCKERHUB_USER = "nguyenlpk" 
+        DOCKERHUB_USER = "khoinguyen2502" 
         IMAGE_NAME = "java-spring-app"
         
         // Dùng số thứ tự của lần build làm phiên bản (VD: v1, v2, v3...)
@@ -26,20 +26,16 @@ pipeline {
                 echo "Đang build Docker Image phiên bản ${IMAGE_TAG}..."
                 // Lưu ý: Vì bạn đang chạy Jenkins trên Windows, ta dùng lệnh 'bat'. 
                 // Nếu sau này công ty dùng Linux, bạn đổi 'bat' thành 'sh'.
-                bat "docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} -t ${DOCKERHUB_USER}/${IMAGE_NAME}:latest ."
-            }
+                sh "docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} -t ${DOCKERHUB_USER}/${IMAGE_NAME}:latest ."            }
         }
 
         stage('3. Đẩy lên mạng (Push to Docker Hub)') {
             steps {
                 echo "Đang đăng nhập và đẩy lên Docker Hub..."
-                bat "echo %DOCKERHUB_CREDS_PSW% | docker login -u %DOCKERHUB_CREDS_USR% --password-stdin"
+                sh "echo \$DOCKERHUB_CREDS_PSW | docker login -u \$DOCKERHUB_CREDS_USR --password-stdin"
                 
-                // Đẩy bản có tag số thứ tự (để rollback khi cần)
-                bat "docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-                
-                // Đẩy bản latest (bản mới nhất)
-                bat "docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+                sh "docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
+                sh "docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
             }
         }
     }
@@ -47,8 +43,8 @@ pipeline {
     post {
         always {
             echo "Dọn dẹp rác sau khi làm xong..."
-            bat "docker logout"
-            bat "docker rmi ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} || exit 0"
+            sh "docker logout || true"
+            sh "docker rmi ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} || true"
         }
         success {
             echo "✅ TUYỆT VỜI! Đã Build và Push thành công!"
