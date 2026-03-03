@@ -24,8 +24,6 @@ pipeline {
         stage('2. Đóng gói (Build Docker Image)') {
             steps {
                 echo "Đang build Docker Image phiên bản ${IMAGE_TAG}..."
-                // Lưu ý: Vì bạn đang chạy Jenkins trên Windows, ta dùng lệnh 'bat'. 
-                // Nếu sau này công ty dùng Linux, bạn đổi 'bat' thành 'sh'.
                 sh "docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} -t ${DOCKERHUB_USER}/${IMAGE_NAME}:latest ."            }
         }
 
@@ -36,6 +34,27 @@ pipeline {
                 
                 sh "docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
                 sh "docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+            }
+        }
+        stage('4. Triển khai (Continuous Deployment)') {
+            steps {
+                echo "Đang cài đặt Helm và gọi Kubernetes cập nhật..."
+                
+                // Mở két sắt lấy file Kubeconfig ra xài
+                withCredentials([file(credentialsId: 'my-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                    # 1. Tải công cụ Helm về container Jenkins
+                    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+                    chmod 700 get_helm.sh
+                    ./get_helm.sh
+                    
+                    # 2. Bơm chìa khóa Kubeconfig vào biến môi trường
+                    export KUBECONFIG=$KUBECONFIG_FILE
+                    
+                    # 3. Ra lệnh cho Kubernetes cập nhật Image mới nhất (Đảm bảo đường dẫn ./deploy/jirhub-chart là đúng với repo của bạn)
+                    helm upgrade --install jirhub-release ./deploy/jirhub-chart --set image.tag=${IMAGE_TAG}
+                    '''
+                }
             }
         }
     }
